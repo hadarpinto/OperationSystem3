@@ -101,9 +101,10 @@ void* producer(void* args) {
 }
 
 void* dispatcher(void* args) {
+    int sizeOfvector = *(int*) args;
     int flag = 0;
     while (1) {
-        for (int i = 0; i < 1; i++){
+        for (int i = 0; i < sizeOfvector; i++){
             string y;
 
             // Remove from the buffer
@@ -159,21 +160,24 @@ int main() {
         coEditorSize = stoi(line);
         conf.close();
     }
-    BoundedQ* b = new BoundedQ(dataVector[0].capacity);
-    vecQs.push_back(b);
+    for(int j = 0; j < producersNum; j++){
+        BoundedQ* b = new BoundedQ(dataVector[j].capacity);
+        vecQs.push_back(b);
+    }
+
     srand(time(NULL));
-    pthread_t th[2];
+    pthread_t th[producersNum+1];
 
 
     int i;
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i <= producersNum; i++) {
         if (i > 0) {
             struct confData* cd = &dataVector[i-1];
             if (pthread_create(&th[i], NULL, &producer, cd) != 0) {
                 perror("Failed to create thread");
             }
         } else {
-            if (pthread_create(&th[i], NULL, &dispatcher, NULL) != 0) {
+            if (pthread_create(&th[i], NULL, &dispatcher, &producersNum) != 0) {
                 perror("Failed to create thread");
             }
         }
