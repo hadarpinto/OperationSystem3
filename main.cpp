@@ -1,5 +1,4 @@
 #include <iostream>
-#include <iostream>
 #include <deque>
 #include <semaphore.h>
 #include <unistd.h>
