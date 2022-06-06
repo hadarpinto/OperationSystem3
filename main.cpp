@@ -77,9 +77,9 @@ string produce(int newNumber, int index){
 }
 
 
-BoundedQ buffer(3);
+
 vector<BoundedQ *> vecQs;
-int count = 0;
+
 
 void* producer(void* args) {
     struct confData* d = (struct confData*) args;
