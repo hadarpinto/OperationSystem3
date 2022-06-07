@@ -23,12 +23,14 @@ public:
     int size;
     sem_t semEmpty;
     sem_t semFull;
+    int doneFlag;
 
     pthread_mutex_t mutexBuffer;
     explicit BoundedQ(int capacity): size(capacity){
         pthread_mutex_init(&mutexBuffer, NULL);
-        sem_init(&semEmpty, 0, 10);
+        sem_init(&semEmpty, 0, capacity);
         sem_init(&semFull, 0, 0);
+        doneFlag = 0;
     }
 
     void insert(string s){
@@ -56,6 +58,7 @@ public:
     }
 };
 
+
 string produce(int newNumber, int index){
     int stat = newNumber % 3;
     string s = to_string(index);
@@ -78,7 +81,23 @@ string produce(int newNumber, int index){
 
 
 vector<BoundedQ *> vecQs;
+vector<BoundedQ *> coQs;
 
+void setToRightQ(string s){
+    //return -1 if not found
+    int news = s.find("NEWS");
+    int sport = s.find("SPORTS");
+    if (news != -1){
+        coQs[0]->insert(s);
+    }
+    else if(sport != -1){
+        coQs[1]->insert(s);
+    }
+    //weather
+    else {
+        coQs[2]->insert(s);
+    }
+}
 
 void* producer(void* args) {
     struct confData* d = (struct confData*) args;
@@ -87,16 +106,26 @@ void* producer(void* args) {
     int i = 0;
     while (i < newsNum) {
         // Produce
-        string s = produce(i, 1);
+        string s = produce(i, producerIndex);
         sleep(0.1);
 
         // Add to the buffer
 
-        vecQs[0]->insert(s);
+        vecQs[producerIndex-1]->insert(s);
         //count++;
         i++;
 
     }
+    while (1) {
+        vecQs[producerIndex-1]->insert("DONE" + to_string(producerIndex));
+    }
+//    if (i == newsNum){
+//        vecQs[producerIndex-1]->insert("DONE");
+//        vecQs[producerIndex-1]->doneFlag = 1;
+//    }
+
+
+
 }
 
 void* dispatcher(void* args) {
@@ -105,26 +134,31 @@ void* dispatcher(void* args) {
     while (1) {
         for (int i = 0; i < sizeOfvector; i++){
             string y;
-
             // Remove from the buffer
-
+            if(vecQs[i]->doneFlag == 1){
+                continue;
+            }
             y = vecQs[i]->remove();
             // Consume
+//            if (y == "DONE") {
+//                vecQs[i]->destroy();
+//                //++
+//            }
+            setToRightQ(y);
             cout << y << endl;
             sleep(1);
-            if(vecQs[i]->empty()) {
-                flag = 1;
-                vecQs[i]->destroy();
-                break;
-            }
+
         }
 
-        if (flag){
-            break;
-        }
     }
 }
 
+void* coEditor(void* args){
+    int coEditorQueue = *(int*) args;
+    while(1) {
+
+    }
+}
 int main() {
     // getting num of producers
     fstream conf;
@@ -164,6 +198,12 @@ int main() {
         vecQs.push_back(b);
     }
 
+    //initialize co-editors queues
+    for(int j = 0; j < 3 ; j++) {
+        BoundedQ* b = new BoundedQ(coEditorSize);
+        coQs.push_back(b);
+    }
+
     srand(time(NULL));
     pthread_t th[producersNum+1];
 
@@ -181,7 +221,7 @@ int main() {
             }
         }
     }
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < producersNum; i++) {
         if (pthread_join(th[i], NULL) != 0) {
             perror("Failed to join thread");
         }
