@@ -9,6 +9,9 @@
 #include <fstream>
 #include <string>
 
+#define CO_EDITORS 3
+#define DISPATCHER 1
+#define SCREEN_MANAGER 1
 using namespace std;
 
 struct confData {
@@ -58,6 +61,41 @@ public:
     }
 };
 
+class UnBoundedQ:public queue<string> {
+public:
+    int size;
+    sem_t semFull;
+    int doneFlag;
+
+    pthread_mutex_t mutexBuffer;
+    explicit UnBoundedQ() {
+        pthread_mutex_init(&mutexBuffer, NULL);
+        sem_init(&semFull, 0, 0);
+        doneFlag = 0;
+    }
+
+    void insert(string s){
+        pthread_mutex_lock(&mutexBuffer);
+        push(s);
+        pthread_mutex_unlock(&mutexBuffer);
+        sem_post(&semFull);
+    }
+    string remove(){
+        sem_wait(&semFull);
+        pthread_mutex_lock(&mutexBuffer);
+        string x = front();
+        pop();
+        pthread_mutex_unlock(&mutexBuffer);
+        return x;
+
+    }
+
+    void destroy(){
+        sem_destroy(&semFull);
+        pthread_mutex_destroy(&mutexBuffer);
+    }
+};
+
 
 string produce(int newNumber, int index){
     int stat = newNumber % 3;
@@ -82,6 +120,7 @@ string produce(int newNumber, int index){
 
 vector<BoundedQ *> vecQs;
 vector<BoundedQ *> coQs;
+UnBoundedQ* unBoundedQ = new UnBoundedQ();
 
 void setToRightQ(string s){
     //return -1 if not found
@@ -145,7 +184,7 @@ void* dispatcher(void* args) {
 //                //++
 //            }
             setToRightQ(y);
-            cout << y << endl;
+            //cout << y << endl;
             sleep(1);
 
         }
@@ -155,8 +194,13 @@ void* dispatcher(void* args) {
 
 void* coEditor(void* args){
     int coEditorQueue = *(int*) args;
+    //int coEditorQueue = 0;
     while(1) {
-
+        string s = coQs[coEditorQueue]->remove();
+        sleep(1);
+        cout << s << endl;
+        unBoundedQ->insert(s);
+        sleep(1);
     }
 }
 int main() {
@@ -205,18 +249,26 @@ int main() {
     }
 
     srand(time(NULL));
-    pthread_t th[producersNum+1];
+    //int totalThreads = producersNum + DISPATCHER + CO_EDITORS + SCREEN_MANAGER;
+    int totalThreads = producersNum + DISPATCHER + CO_EDITORS;
+    pthread_t th[totalThreads];
 
 
     int i;
-    for (i = 0; i <= producersNum; i++) {
-        if (i > 0) {
+    for (i = 0; i < totalThreads ; i++) {
+        if (i == 0){
+            if (pthread_create(&th[i], NULL, &dispatcher, &producersNum) != 0) {
+                perror("Failed to create thread");
+            }
+        }
+        else if (i > 0 && i<=producersNum) {
             struct confData* cd = &dataVector[i-1];
             if (pthread_create(&th[i], NULL, &producer, cd) != 0) {
                 perror("Failed to create thread");
             }
-        } else {
-            if (pthread_create(&th[i], NULL, &dispatcher, &producersNum) != 0) {
+        } else if (i > producersNum && i<=producersNum+3) {
+            int queueIndex = i - producersNum - 1;
+            if (pthread_create(&th[i], NULL, &coEditor, &queueIndex) != 0) {
                 perror("Failed to create thread");
             }
         }
