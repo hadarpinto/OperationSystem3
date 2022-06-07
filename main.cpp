@@ -198,7 +198,7 @@ void* coEditor(void* args){
     while(1) {
         string s = coQs[coEditorQueue]->remove();
         sleep(1);
-        cout << s << endl;
+        //cout << s << endl;
         unBoundedQ->insert(s);
         sleep(1);
     }
@@ -207,8 +207,8 @@ void* coEditor(void* args){
 void* screenManger(void* args) {
     while(1){
         string s = unBoundedQ->remove();
-        sleep(1);
         cout << s << endl;
+        sleep(1);
     }
 }
 int main() {
@@ -257,8 +257,8 @@ int main() {
     }
 
     srand(time(NULL));
-    //int totalThreads = producersNum + DISPATCHER + CO_EDITORS + SCREEN_MANAGER;
-    int totalThreads = producersNum + DISPATCHER + CO_EDITORS;
+    int totalThreads = producersNum + DISPATCHER + CO_EDITORS + SCREEN_MANAGER;
+    //int totalThreads = producersNum + DISPATCHER + CO_EDITORS;
     pthread_t th[totalThreads];
 
 
@@ -277,6 +277,11 @@ int main() {
         } else if (i > producersNum && i<=producersNum+3) {
             int queueIndex = i - producersNum - 1;
             if (pthread_create(&th[i], NULL, &coEditor, &queueIndex) != 0) {
+                perror("Failed to create thread");
+            }
+        }
+        else {
+            if (pthread_create(&th[i], NULL, &screenManger, nullptr) != 0) {
                 perror("Failed to create thread");
             }
         }
