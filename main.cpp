@@ -203,6 +203,14 @@ void* coEditor(void* args){
         sleep(1);
     }
 }
+
+void* screenManger(void* args) {
+    while(1){
+        string s = unBoundedQ->remove();
+        sleep(1);
+        cout << s << endl;
+    }
+}
 int main() {
     // getting num of producers
     fstream conf;
