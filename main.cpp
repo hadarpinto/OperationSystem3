@@ -121,6 +121,7 @@ string produce(int newNumber, int index){
 vector<BoundedQ *> vecQs;
 vector<BoundedQ *> coQs;
 UnBoundedQ* unBoundedQ = new UnBoundedQ();
+int done_count;
 
 void setToRightQ(string s){
     //return -1 if not found
@@ -146,8 +147,6 @@ void* producer(void* args) {
     while (i < newsNum) {
         // Produce
         string s = produce(i, producerIndex);
-        sleep(0.1);
-
         // Add to the buffer
 
         vecQs[producerIndex-1]->insert(s);
@@ -155,9 +154,11 @@ void* producer(void* args) {
         i++;
 
     }
-    while (1) {
-        vecQs[producerIndex-1]->insert("DONE" + to_string(producerIndex));
-    }
+
+    vecQs[producerIndex-1]->doneFlag = 1;
+//    while (1) {
+//        vecQs[producerIndex-1]->insert("DONE" + to_string(producerIndex));
+//    }
 //    if (i == newsNum){
 //        vecQs[producerIndex-1]->insert("DONE");
 //        vecQs[producerIndex-1]->doneFlag = 1;
@@ -166,15 +167,22 @@ void* producer(void* args) {
 
 
 }
-
+// initialize a set of all indexes of producers. send from producer done. if we recieve done, we take out the
+// index from our set. when set size is equal to 0, we send done to our co -editors.
+// in function setrightq we send done to manger screen and it print done.
 void* dispatcher(void* args) {
     int sizeOfvector = *(int*) args;
-    int flag = 0;
     while (1) {
         for (int i = 0; i < sizeOfvector; i++){
             string y;
             // Remove from the buffer
             if(vecQs[i]->doneFlag == 1){
+                done_count--;
+                if(done_count == 0){
+                    cout << "we finishhh" << endl;
+                    break;
+                }
+                vecQs[i]->destroy();
                 continue;
             }
             y = vecQs[i]->remove();
@@ -184,8 +192,7 @@ void* dispatcher(void* args) {
 //                //++
 //            }
             setToRightQ(y);
-            //cout << y << endl;
-            sleep(1);
+
 
         }
 
@@ -198,9 +205,8 @@ void* coEditor(void* args){
     while(1) {
         string s = coQs[coEditorQueue]->remove();
         sleep(1);
-        //cout << s << endl;
         unBoundedQ->insert(s);
-        sleep(1);
+
     }
 }
 
@@ -208,7 +214,6 @@ void* screenManger(void* args) {
     while(1){
         string s = unBoundedQ->remove();
         cout << s << endl;
-        sleep(1);
     }
 }
 int main() {
@@ -224,6 +229,7 @@ int main() {
         }
         conf.close();
     }
+    done_count = producersNum;
     producersNum = producersNum / 4;
     // reading from conf file
     vector<struct confData> dataVector;
@@ -251,14 +257,13 @@ int main() {
     }
 
     //initialize co-editors queues
-    for(int j = 0; j < 3 ; j++) {
+    for(int j = 0; j < CO_EDITORS ; j++) {
         BoundedQ* b = new BoundedQ(coEditorSize);
         coQs.push_back(b);
     }
 
     srand(time(NULL));
     int totalThreads = producersNum + DISPATCHER + CO_EDITORS + SCREEN_MANAGER;
-    //int totalThreads = producersNum + DISPATCHER + CO_EDITORS;
     pthread_t th[totalThreads];
 
 
@@ -274,7 +279,7 @@ int main() {
             if (pthread_create(&th[i], NULL, &producer, cd) != 0) {
                 perror("Failed to create thread");
             }
-        } else if (i > producersNum && i<=producersNum+3) {
+        } else if (i > producersNum && i<=producersNum+CO_EDITORS) {
             int queueIndex = i - producersNum - 1;
             if (pthread_create(&th[i], NULL, &coEditor, &queueIndex) != 0) {
                 perror("Failed to create thread");
@@ -293,6 +298,5 @@ int main() {
     }
 
     return 0;
-
 
 }
