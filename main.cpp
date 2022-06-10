@@ -9,11 +9,8 @@
 #include <fstream>
 #include <string>
 #include <atomic>
-#include <thread>
-
 #define CO_EDITORS 3
-#define DISPATCHER 1
-#define SCREEN_MANAGER 1
+
 using namespace std;
 
 struct confData {
@@ -32,7 +29,7 @@ public:
     pthread_mutex_t mutexBuffer;
 
     explicit BoundedQ(int capacity) : size(capacity) {
-        pthread_mutex_init(&mutexBuffer, NULL);
+        pthread_mutex_init(&mutexBuffer, nullptr);
         sem_init(&semEmpty, 0, capacity);
         sem_init(&semFull, 0, 0);
     }
@@ -146,7 +143,7 @@ void setToRightQ(string s) {
     }
 }
 
-void *producer(void *args) {
+void* producer(void *args) {
     struct confData *d = (struct confData *) args;
     int producerIndex = d->index;
     int newsNum = d->newsNum;
@@ -164,7 +161,7 @@ void *producer(void *args) {
     vecQs[producerIndex - 1]->insert("DONE");
 }
 
-void *dispatcher(void *args) {
+void* dispatcher(void *args) {
     int sizeOfvector = *(int *) args;
     int done = sizeOfvector;
     while (done != 0) {
@@ -186,9 +183,8 @@ void *dispatcher(void *args) {
     setToRightQ("DONE");
 }
 
-void *coEditor(void *args) {
+void* coEditor(void *args) {
     int coEditorQueue = *(int *) args;
-    cout << coEditorQueue << endl;
     while (1) {
         string s = coQs[coEditorQueue]->remove();
         if (s == "DONE") {
@@ -199,7 +195,7 @@ void *coEditor(void *args) {
     }
 }
 
-void *screenManger(void *args) {
+void* screenManger(void *args) {
     int done = 0;
 
     while (1) {
@@ -220,10 +216,8 @@ int main(int argv, char **argc) {
     fstream conf;
     int producersNum = 0, coEditorSize;
     string s;
-    /////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////
-    //string filename = argc[1];
-    conf.open("conf.txt", ios::in);
+    string filename = argc[1];
+    conf.open(filename, ios::in);
     if (conf.is_open()) {
         while (!conf.eof()) {
             getline(conf, s);
@@ -234,7 +228,7 @@ int main(int argv, char **argc) {
     producersNum = producersNum / 4;
     // reading from conf file
     vector<struct confData> dataVector;
-    conf.open("conf.txt", ios::in);
+    conf.open(filename, ios::in);
     if (conf.is_open()) {
         string line;
         for (int i = 0; i < producersNum; i++) {
@@ -272,12 +266,12 @@ int main(int argv, char **argc) {
     for (int i = 0; i < producersNum; i++) {
         sleep(0.11);
         struct confData *cd = &dataVector[i];
-        if (pthread_create(&producers[i], NULL, &producer, cd) != 0) {
+        if (pthread_create(&producers[i], nullptr, &producer, cd) != 0) {
             perror("Failed to create thread");
         }
     }
 
-    if (pthread_create(&dispatch, NULL, &dispatcher, &producersNum) != 0) {
+    if (pthread_create(&dispatch, nullptr, &dispatcher, &producersNum) != 0) {
         perror("Failed to create thread");
     }
     sleep(1);
@@ -287,7 +281,7 @@ int main(int argv, char **argc) {
     mutex m;
     for (int j = 0; j < CO_EDITORS;j++) {
     sleep(0.11);
-        if (pthread_create(&coEditors[j], NULL, &coEditor, &queueIndex) != 0) {
+        if (pthread_create(&coEditors[j], nullptr, &coEditor, &queueIndex) != 0) {
             perror("Failed to create thread");
         }
         m.lock();
@@ -295,27 +289,27 @@ int main(int argv, char **argc) {
         m.unlock();
     }
 
-    if (pthread_create(&screen, NULL, &screenManger, nullptr) != 0) {
+    if (pthread_create(&screen, nullptr, &screenManger, nullptr) != 0) {
         perror("Failed to create thread");
     }
 
     for (int i = 0; i < producersNum; i++) {
-        if (pthread_join(producers[i], NULL) != 0) {
+        if (pthread_join(producers[i], nullptr) != 0) {
             perror("Failed to create thread");
         }
     }
 
-    if (pthread_join(dispatch, NULL) != 0) {
+    if (pthread_join(dispatch, nullptr) != 0) {
         perror("Failed to create thread");
     }
 
     for (int i = 0; i < CO_EDITORS; i++) {
-        if (pthread_join(coEditors[i], NULL) != 0) {
+        if (pthread_join(coEditors[i], nullptr) != 0) {
             perror("Failed to create thread");
         }
     }
 
-    if (pthread_join(screen, NULL) != 0) {
+    if (pthread_join(screen, nullptr) != 0) {
         perror("Failed to create thread");
     }
 
